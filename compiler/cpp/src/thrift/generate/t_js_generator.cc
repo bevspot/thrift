@@ -266,6 +266,15 @@ public:
     return ns;
   }
 
+  std::string js_namespace_name(t_program* p) {
+    if (no_ns_) {
+      return "";
+    }
+    std::string ns = p->get_namespace("js");
+
+    return ns;
+  }
+
   /**
    * TypeScript Definition File helper functions
    */
@@ -284,7 +293,7 @@ public:
    * Returns "declare " if no module was defined.
    * @return string
    */
-  string ts_declare() { return (ts_module_.empty() ? "declare " : ""); }
+  string ts_declare() { return (ts_module_.empty() ? "declare " : (gen_es6_ ? "export " : "")); }
 
   /**
    * Returns "?" if the given field is optional.
@@ -387,7 +396,14 @@ void t_js_generator::init_generator() {
   if (gen_ts_) {
     f_types_ts_ << autogen_comment() << endl;
     if (gen_es6_) {
-      f_types_ts_ << "import Thrift from 'thrift';" << endl;
+      f_types_ts_ << "import Thrift from 'thrift';" << endl << endl;
+      const vector<t_program*>& includes = program_->get_includes();
+      for (size_t i = 0; i < includes.size(); ++i) {
+        f_types_ts_ << "import "
+                      << (has_js_namespace(includes[i]) ? js_namespace_name(includes[i]) : "* as " + includes[i]->get_name())
+                      << " from './" << includes[i]->get_name() << "_types';" << endl;
+      }
+      f_types_ts_ << endl;
     }
   }
 
@@ -417,6 +433,9 @@ void t_js_generator::init_generator() {
     }
     if (gen_ts_) {
       ts_module_ = pns;
+      if (gen_es6_) {
+        f_types_ts_ << "export default " << ts_module_ << ";" << endl;
+      }
       f_types_ts_ << "declare namespace " << ts_module_ << " {";
     }
   }
@@ -486,6 +505,7 @@ void t_js_generator::generate_typedef(t_typedef* ttypedef) {
  * in JS, we use a global array for this.
  *
  * @param tenum The enumeration
+ * @todo export for gen_es6_
  */
 void t_js_generator::generate_enum(t_enum* tenum) {
   f_types_ << js_type_namespace(tenum->get_program()) << tenum->get_name() << " = {" << endl;
@@ -524,6 +544,8 @@ void t_js_generator::generate_enum(t_enum* tenum) {
 
 /**
  * Generate a constant value
+ *
+ * @todo export for gen_es6_
  */
 void t_js_generator::generate_const(t_const* tconst) {
   t_type* type = tconst->get_type();
@@ -1001,12 +1023,26 @@ void t_js_generator::generate_service(t_service* tservice) {
 
   if (gen_ts_) {
     if (tservice->get_extends() != NULL) {
+      // TODO: probably want to turn this into an ES6 import when gen_es6_
       f_service_ts_ << "/// <reference path=\"" << tservice->get_extends()->get_name()
                     << ".d.ts\" />" << endl;
     }
     f_service_ts_ << autogen_comment() << endl;
+    if (gen_es6_) {
+      f_service_ts_ << "import Thrift from 'thrift';" << endl << endl;
+      const vector<t_program*>& includes = program_->get_includes();
+      for (size_t i = 0; i < includes.size(); ++i) {
+        f_service_ts_ << "import "
+                      << (has_js_namespace(includes[i]) ? js_namespace_name(includes[i]) : "* as " + includes[i]->get_name())
+                      << " from './" << includes[i]->get_name() << "_types';" << endl;
+      }
+      f_service_ts_ << endl;
+    }
     if (!ts_module_.empty()) {
-      f_service_ts_ << "declare module " << ts_module_ << " {";
+      if (gen_es6_) {
+        f_service_ts_ << "export default " << ts_module_ << ";" << endl;
+      }
+      f_service_ts_ << "declare namespace " << ts_module_ << " {";
     }
   }
 
@@ -1335,7 +1371,12 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     f_service_ << prefix << service_name_ << "Client = "
                << "exports.Client = function(output, pClass) {" << endl;
   } else {
-    f_service_ << js_namespace(tservice->get_program()) << service_name_
+    string prefix = has_js_namespace(tservice->get_program()) ? js_namespace(tservice->get_program()) : "";
+    if (prefix == "" && gen_es6_) {
+      prefix += "export var ";
+    }
+
+    f_service_ << prefix << service_name_
                << "Client = function(input, output) {" << endl;
     if (gen_ts_) {
       f_service_ts_ << ts_print_doc(tservice) << ts_indent() << ts_declare() << "class "
