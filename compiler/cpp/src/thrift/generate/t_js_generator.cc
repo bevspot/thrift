@@ -57,6 +57,7 @@ public:
 
     gen_node_ = false;
     gen_jquery_ = false;
+    gen_es6_ = false;
     gen_ts_ = false;
 
     bool with_ns_ = false;
@@ -66,6 +67,8 @@ public:
         gen_node_ = true;
       } else if( iter->first.compare("jquery") == 0) {
         gen_jquery_ = true;
+      } else if( iter->first.compare("es6") == 0) {
+        gen_es6_ = true;
       } else if( iter->first.compare("ts") == 0) {
         gen_ts_ = true;
       } else if( iter->first.compare("with_ns") == 0) {
@@ -323,6 +326,11 @@ private:
   bool gen_jquery_;
 
   /**
+   * True if we should generate ES6 compatible modules.
+   */
+  bool gen_es6_;
+
+  /**
    * True if we should generate a TypeScript Definition File for each service.
    */
   bool gen_ts_;
@@ -378,6 +386,9 @@ void t_js_generator::init_generator() {
 
   if (gen_ts_) {
     f_types_ts_ << autogen_comment() << endl;
+    if (gen_es6_) {
+      f_types_ts_ << "import Thrift from 'thrift';" << endl;
+    }
   }
 
   if (gen_node_) {
@@ -390,15 +401,23 @@ void t_js_generator::init_generator() {
   // TODO should the namespace just be in the directory structure for node?
   vector<string> ns_pieces = js_namespace_pieces(program_);
   if (ns_pieces.size() > 0) {
-    for (size_t i = 0; i < ns_pieces.size(); ++i) {
-      pns += ((i == 0) ? "" : ".") + ns_pieces[i];
-      f_types_ << "if (typeof " << pns << " === 'undefined') {" << endl;
-      f_types_ << "  " << pns << " = {};" << endl;
-      f_types_ << "}" << endl;
+    if (gen_es6_) {
+      for (size_t i = 0; i < ns_pieces.size(); ++i) {
+        pns += ((i == 0) ? "" : ".") + ns_pieces[i];
+        f_types_ << ((i == 0) ? "var " : "") << pns << " = {};" << endl;
+      }
+      f_types_ << "export default " << ns_pieces[0] << ";" << endl;
+    } else {
+      for (size_t i = 0; i < ns_pieces.size(); ++i) {
+        pns += ((i == 0) ? "" : ".") + ns_pieces[i];
+        f_types_ << "if (typeof " << pns << " === 'undefined') {" << endl;
+        f_types_ << "  " << pns << " = {};" << endl;
+        f_types_ << "}" << endl;
+      }
     }
     if (gen_ts_) {
       ts_module_ = pns;
-      f_types_ts_ << "declare module " << ts_module_ << " {";
+      f_types_ts_ << "declare namespace " << ts_module_ << " {";
     }
   }
 }
@@ -687,7 +706,15 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
           << endl;
     }
   } else {
-    out << js_namespace(tstruct->get_program()) << tstruct->get_name() << " = function(args) {"
+    string prefix = has_js_namespace(tstruct->get_program()) ? js_namespace(tstruct->get_program()) : "";
+    if (prefix == "" && gen_es6_) {
+      if (is_exported) {
+        prefix = "export ";
+      }
+      prefix += "var ";
+    }
+
+    out << prefix << tstruct->get_name() << " = function(args) {"
         << endl;
     if (gen_ts_) {
       f_types_ts_ << ts_print_doc(tstruct) << ts_indent() << ts_declare() << "class "
