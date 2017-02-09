@@ -57,6 +57,7 @@ public:
 
     gen_node_ = false;
     gen_jquery_ = false;
+    gen_es6_ = false;
     gen_ts_ = false;
 
     bool with_ns_ = false;
@@ -66,6 +67,8 @@ public:
         gen_node_ = true;
       } else if( iter->first.compare("jquery") == 0) {
         gen_jquery_ = true;
+      } else if( iter->first.compare("es6") == 0) {
+        gen_es6_ = true;
       } else if( iter->first.compare("ts") == 0) {
         gen_ts_ = true;
       } else if( iter->first.compare("with_ns") == 0) {
@@ -263,6 +266,25 @@ public:
     return ns;
   }
 
+  std::string js_namespace_name(t_program* p) {
+    if (no_ns_) {
+      return "";
+    }
+    std::string ns = p->get_namespace("js");
+
+    return ns;
+  }
+
+  std::string js_es6_includes(t_program* p) {
+    std::string es6_includes = "import Thrift from 'thrift';" + endl;
+    const vector<t_program*>& includes = p->get_includes();
+    for (size_t i = 0; i < includes.size(); ++i) {
+      es6_includes += "import " + (has_js_namespace(includes[i]) ? js_namespace_name(includes[i]) : "* as " + includes[i]->get_name()) +
+                      " from './" + includes[i]->get_name() + "_types';" + endl;
+    }
+    return es6_includes;
+  }
+
   /**
    * TypeScript Definition File helper functions
    */
@@ -281,7 +303,7 @@ public:
    * Returns "declare " if no module was defined.
    * @return string
    */
-  string ts_declare() { return (ts_module_.empty() ? "declare " : ""); }
+  string ts_declare() { return (ts_module_.empty() ? "declare " : (gen_es6_ ? "export " : "")); }
 
   /**
    * Returns "?" if the given field is optional.
@@ -321,6 +343,11 @@ private:
    * True if we should generate services that use jQuery ajax (async/sync).
    */
   bool gen_jquery_;
+
+  /**
+   * True if we should generate ES6 compatible modules.
+   */
+  bool gen_es6_;
 
   /**
    * True if we should generate a TypeScript Definition File for each service.
@@ -374,10 +401,17 @@ void t_js_generator::init_generator() {
     f_types_ << "\"use strict\";" << endl << endl;
   }
 
+  if (gen_es6_) {
+    f_types_ << js_es6_includes(program_) << endl;
+  }
+
   f_types_ << js_includes() << endl << render_includes() << endl;
 
   if (gen_ts_) {
     f_types_ts_ << autogen_comment() << endl;
+    if (gen_es6_) {
+      f_types_ts_ << js_es6_includes(program_) << endl;
+    }
   }
 
   if (gen_node_) {
@@ -390,15 +424,26 @@ void t_js_generator::init_generator() {
   // TODO should the namespace just be in the directory structure for node?
   vector<string> ns_pieces = js_namespace_pieces(program_);
   if (ns_pieces.size() > 0) {
-    for (size_t i = 0; i < ns_pieces.size(); ++i) {
-      pns += ((i == 0) ? "" : ".") + ns_pieces[i];
-      f_types_ << "if (typeof " << pns << " === 'undefined') {" << endl;
-      f_types_ << "  " << pns << " = {};" << endl;
-      f_types_ << "}" << endl;
+    if (gen_es6_) {
+      for (size_t i = 0; i < ns_pieces.size(); ++i) {
+        pns += ((i == 0) ? "" : ".") + ns_pieces[i];
+        f_types_ << ((i == 0) ? "var " : "") << pns << " = {};" << endl;
+      }
+      f_types_ << "export default " << ns_pieces[0] << ";" << endl;
+    } else {
+      for (size_t i = 0; i < ns_pieces.size(); ++i) {
+        pns += ((i == 0) ? "" : ".") + ns_pieces[i];
+        f_types_ << "if (typeof " << pns << " === 'undefined') {" << endl;
+        f_types_ << "  " << pns << " = {};" << endl;
+        f_types_ << "}" << endl;
+      }
     }
     if (gen_ts_) {
       ts_module_ = pns;
-      f_types_ts_ << "declare module " << ts_module_ << " {";
+      if (gen_es6_) {
+        f_types_ts_ << "export default " << ts_module_ << ";" << endl;
+      }
+      f_types_ts_ << "declare namespace " << ts_module_ << " {";
     }
   }
 }
@@ -467,6 +512,7 @@ void t_js_generator::generate_typedef(t_typedef* ttypedef) {
  * in JS, we use a global array for this.
  *
  * @param tenum The enumeration
+ * @todo export for gen_es6_
  */
 void t_js_generator::generate_enum(t_enum* tenum) {
   f_types_ << js_type_namespace(tenum->get_program()) << tenum->get_name() << " = {" << endl;
@@ -505,6 +551,8 @@ void t_js_generator::generate_enum(t_enum* tenum) {
 
 /**
  * Generate a constant value
+ *
+ * @todo export for gen_es6_
  */
 void t_js_generator::generate_const(t_const* tconst) {
   t_type* type = tconst->get_type();
@@ -687,7 +735,15 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
           << endl;
     }
   } else {
-    out << js_namespace(tstruct->get_program()) << tstruct->get_name() << " = function(args) {"
+    string prefix = has_js_namespace(tstruct->get_program()) ? js_namespace(tstruct->get_program()) : "";
+    if (prefix == "" && gen_es6_) {
+      if (is_exported) {
+        prefix = "export ";
+      }
+      prefix += "var ";
+    }
+
+    out << prefix << tstruct->get_name() << " = function(args) {"
         << endl;
     if (gen_ts_) {
       f_types_ts_ << ts_print_doc(tstruct) << ts_indent() << ts_declare() << "class "
@@ -974,12 +1030,19 @@ void t_js_generator::generate_service(t_service* tservice) {
 
   if (gen_ts_) {
     if (tservice->get_extends() != NULL) {
+      // TODO: probably want to turn this into an ES6 import when gen_es6_
       f_service_ts_ << "/// <reference path=\"" << tservice->get_extends()->get_name()
                     << ".d.ts\" />" << endl;
     }
     f_service_ts_ << autogen_comment() << endl;
+    if (gen_es6_) {
+      f_service_ts_ << js_es6_includes(program_) << endl;
+    }
     if (!ts_module_.empty()) {
-      f_service_ts_ << "declare module " << ts_module_ << " {";
+      if (gen_es6_) {
+        f_service_ts_ << "export default " << ts_module_ << ";" << endl;
+      }
+      f_service_ts_ << "declare namespace " << ts_module_ << " {";
     }
   }
 
@@ -994,6 +1057,17 @@ void t_js_generator::generate_service(t_service* tservice) {
     }
 
     f_service_ << "var ttypes = require('./" + program_->get_name() + "_types');" << endl;
+  }
+
+  if (gen_es6_) {
+    f_service_ << js_es6_includes(program_) << endl;
+  }
+
+  if(has_js_namespace(tservice->get_program())) {
+    f_service_ << "var " << js_namespace_name(tservice->get_program()) << " = {};" << endl;
+    if (gen_es6_) {
+      f_service_ << "export default " << js_namespace_name(tservice->get_program()) << ";" << endl;
+    }
   }
 
   generate_service_helpers(tservice);
@@ -1308,7 +1382,11 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     f_service_ << prefix << service_name_ << "Client = "
                << "exports.Client = function(output, pClass) {" << endl;
   } else {
-    f_service_ << js_namespace(tservice->get_program()) << service_name_
+    string prefix = has_js_namespace(tservice->get_program()) ? js_namespace(tservice->get_program()) : "";
+    if (prefix == "" && gen_es6_) {
+      f_service_ << "export var ";
+    }
+    f_service_ << prefix << service_name_
                << "Client = function(input, output) {" << endl;
     if (gen_ts_) {
       f_service_ts_ << ts_print_doc(tservice) << ts_indent() << ts_declare() << "class "
