@@ -275,6 +275,16 @@ public:
     return ns;
   }
 
+  std::string js_es6_includes(t_program* p) {
+    std::string es6_includes = "import Thrift from 'thrift';" + endl;
+    const vector<t_program*>& includes = p->get_includes();
+    for (size_t i = 0; i < includes.size(); ++i) {
+      es6_includes += "import " + (has_js_namespace(includes[i]) ? js_namespace_name(includes[i]) : "* as " + includes[i]->get_name()) +
+                      " from './" + includes[i]->get_name() + "_types';" + endl;
+    }
+    return es6_includes;
+  }
+
   /**
    * TypeScript Definition File helper functions
    */
@@ -391,19 +401,16 @@ void t_js_generator::init_generator() {
     f_types_ << "\"use strict\";" << endl << endl;
   }
 
+  if (gen_es6_) {
+    f_types_ << js_es6_includes(program_) << endl;
+  }
+
   f_types_ << js_includes() << endl << render_includes() << endl;
 
   if (gen_ts_) {
     f_types_ts_ << autogen_comment() << endl;
     if (gen_es6_) {
-      f_types_ts_ << "import Thrift from 'thrift';" << endl << endl;
-      const vector<t_program*>& includes = program_->get_includes();
-      for (size_t i = 0; i < includes.size(); ++i) {
-        f_types_ts_ << "import "
-                      << (has_js_namespace(includes[i]) ? js_namespace_name(includes[i]) : "* as " + includes[i]->get_name())
-                      << " from './" << includes[i]->get_name() << "_types';" << endl;
-      }
-      f_types_ts_ << endl;
+      f_types_ts_ << js_es6_includes(program_) << endl;
     }
   }
 
@@ -1029,14 +1036,7 @@ void t_js_generator::generate_service(t_service* tservice) {
     }
     f_service_ts_ << autogen_comment() << endl;
     if (gen_es6_) {
-      f_service_ts_ << "import Thrift from 'thrift';" << endl << endl;
-      const vector<t_program*>& includes = program_->get_includes();
-      for (size_t i = 0; i < includes.size(); ++i) {
-        f_service_ts_ << "import "
-                      << (has_js_namespace(includes[i]) ? js_namespace_name(includes[i]) : "* as " + includes[i]->get_name())
-                      << " from './" << includes[i]->get_name() << "_types';" << endl;
-      }
-      f_service_ts_ << endl;
+      f_service_ts_ << js_es6_includes(program_) << endl;
     }
     if (!ts_module_.empty()) {
       if (gen_es6_) {
@@ -1057,6 +1057,17 @@ void t_js_generator::generate_service(t_service* tservice) {
     }
 
     f_service_ << "var ttypes = require('./" + program_->get_name() + "_types');" << endl;
+  }
+
+  if (gen_es6_) {
+    f_service_ << js_es6_includes(program_) << endl;
+  }
+
+  if(has_js_namespace(tservice->get_program())) {
+    f_service_ << "var " << js_namespace_name(tservice->get_program()) << " = {};" << endl;
+    if (gen_es6_) {
+      f_service_ << "export default " << js_namespace_name(tservice->get_program()) << ";" << endl;
+    }
   }
 
   generate_service_helpers(tservice);
@@ -1373,9 +1384,8 @@ void t_js_generator::generate_service_client(t_service* tservice) {
   } else {
     string prefix = has_js_namespace(tservice->get_program()) ? js_namespace(tservice->get_program()) : "";
     if (prefix == "" && gen_es6_) {
-      prefix += "export var ";
+      f_service_ << "export var ";
     }
-
     f_service_ << prefix << service_name_
                << "Client = function(input, output) {" << endl;
     if (gen_ts_) {
