@@ -25,6 +25,7 @@
   },
   "files": [
     "lib/js_es6/src",
+    "lib/js_es6/dist",
     "lib/js_es6/README.md"
   ],
   "directories": {
