@@ -1,12 +1,12 @@
 {
-  "name": "thrift",
-  "description": "node.js bindings for the Apache Thrift RPC system",
+  "name": "thrift-es6",
+  "description": "JavaScript module bindings for the Apache Thrift RPC system",
   "homepage": "http://thrift.apache.org/",
   "repository": {
     "type": "git",
     "url": "https://git-wip-us.apache.org/repos/asf/thrift.git"
   },
-  "version": "0.10.0",
+  "version": "0.10.0-rc.1",
   "author": {
     "name": "Apache Thrift Developers",
     "email": "dev@thrift.apache.org",
@@ -24,13 +24,14 @@
     "url": "https://issues.apache.org/jira/browse/THRIFT"
   },
   "files": [
-    "lib/nodejs/lib/thrift",
-    "lib/nodejs/README.md"
+    "lib/js_es6/src",
+    "lib/js_es6/README.md"
   ],
   "directories": {
-    "lib": "./lib/nodejs/lib/thrift"
+    "lib": "./lib/js_es6/dist"
   },
-  "main": "./lib/nodejs/lib/thrift",
+  "main": "./lib/js_es6/dist/thrift.js",
+  "types": "./lib/js_es6/src/thrift.d.ts",
   "engines": {
     "node": ">= 0.2.4"
   },
@@ -40,6 +41,8 @@
     "ws": "~0.4.32"
   },
   "devDependencies": {
+    "babel-cli": "6",
+    "babel-preset-es2015": "6",
     "buffer-equals": "^1.0.3",
     "commander": "2.1.x",
     "connect": "2.7.x",
@@ -48,7 +51,9 @@
     "tape": "~3.5.0"
   },
   "scripts": {
-    "cover": "lib/nodejs/test/testAll.sh COVER",
-    "test": "lib/nodejs/test/testAll.sh"
+    "cover": "lib/js_es6/test/testAll.sh COVER",
+    "test": "lib/js_es6/test/testAll.sh",
+    "build": "babel lib/js_es6/src --presets babel-preset-es2015 --out-dir lib/js_es6/dist",
+    "prepublish": "npm run build"
   }
 }

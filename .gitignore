@@ -215,6 +215,7 @@ erl_crash.dump
 /lib/hs/dist
 /lib/java/build
 /lib/js/test/build
+/lib/js_es6/dist
 /lib/nodejs/coverage
 /lib/nodejs/node_modules/
 /lib/perl/MANIFEST
