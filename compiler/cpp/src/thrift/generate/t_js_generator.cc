@@ -1459,9 +1459,9 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     if (gen_ts_) {
       f_service_ts_ << ts_print_doc(*f_iter) <<
           // function definition without callback
-          ts_indent() << ts_function_signature(*f_iter, false) << endl << ts_print_doc(*f_iter) <<
+          ts_function_signature(*f_iter, false) << endl << ts_print_doc(*f_iter) <<
           // overload with callback
-          ts_indent() << ts_function_signature(*f_iter, true) << endl;
+          ts_function_signature(*f_iter, true) << endl;
     }
 
     if (gen_node_) { // Node.js output      ./gen-nodejs
@@ -2281,11 +2281,28 @@ string t_js_generator::ts_get_type(t_type* type) {
  * @return String of rendered function definition
  */
 std::string t_js_generator::ts_function_signature(t_function* tfunction, bool include_callback) {
-  string str;
+  string str = "";
   const vector<t_field*>& fields = tfunction->get_arglist()->get_members();
   vector<t_field*>::const_iterator f_iter;
 
-  str = tfunction->get_name() + "(";
+  // add throwable exception comments for convenience
+  bool has_exception = false;
+  t_struct* exceptions = tfunction->get_xceptions();
+  if (exceptions) {
+    const vector<t_field*>& members = exceptions->get_members();
+    for (vector<t_field*>::const_iterator it = members.begin(); it != members.end(); ++it) {
+      t_type* t = get_true_type((*it)->get_type());
+      if (t->is_xception()) {
+        has_exception = true;
+        str += ts_indent() + " *     " + js_type_namespace(t->get_program()) + t->get_name() + endl;
+      }
+    }
+  }
+  if (has_exception) {
+    str = ts_indent() + "/**" + endl + ts_indent() + " * @throws" + endl + str + ts_indent() + " */" + endl;
+  }
+
+  str += ts_indent() + tfunction->get_name() + "(";
 
   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
     str += (*f_iter)->get_name() + ts_get_req(*f_iter) + ": " + ts_get_type((*f_iter)->get_type());
