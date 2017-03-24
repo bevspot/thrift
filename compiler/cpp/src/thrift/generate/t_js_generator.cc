@@ -1515,15 +1515,26 @@ void t_js_generator::generate_service_client(t_service* tservice) {
       indent_down();
       f_service_ << indent() << "}" << endl;
     } else { // Standard JavaScript ./gen-js
+      f_service_ << indent() << "this.pendingError = new Error();" << endl;
       f_service_ << indent() << "this.send_" << funname << "(" << arglist
                  << (arglist.empty() ? "" : ", ") << "callback); " << endl;
       if (!(*f_iter)->is_oneway()) {
         f_service_ << indent() << "if (!callback) {" << endl;
         f_service_ << indent();
         if (!(*f_iter)->get_returntype()->is_void()) {
-          f_service_ << "  return ";
+          f_service_ << "  var result = null;" << endl;
+          f_service_ << indent() << "  try {" << endl;
+          f_service_ << indent() << "    result = this.recv_" << funname << "();" << endl;
+          f_service_ << indent() << "  } catch (e) {" << endl;
+          f_service_ << indent() << "    result = e;" << endl;
+          f_service_ << indent() << "    result.message = 'Thrift Exception';" << endl;
+          f_service_ << indent() << "    result.stack = this.pendingError ? this.pendingError.stack || this.pendingError.stacktrace || this.pendingError : null;" << endl;
+          f_service_ << indent() << "  }" << endl;
+          f_service_ << indent() << "  this.pendingError = null;" << endl;
+          f_service_ << indent() << "  return result;" << endl;
+        } else {
+          f_service_ << "  this.recv_" << funname << "();" << endl;
         }
-        f_service_ << "this.recv_" << funname << "();" << endl;
         f_service_ << indent() << "}" << endl;
       }
     }
@@ -1586,7 +1597,10 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "      result = self.recv_" << funname << "() || xhrError;" << endl;
         f_service_ << indent() << "    } catch (e) {" << endl;
         f_service_ << indent() << "      result = e;" << endl;
+        f_service_ << indent() << "      result.message = 'Thrift Exception';" << endl;
+        f_service_ << indent() << "      result.stack = self.pendingError ? self.pendingError.stack || self.pendingError.stacktrace || self.pendingError : null;" << endl;
         f_service_ << indent() << "    }" << endl;
+        f_service_ << indent() << "    self.pendingError = null;" << endl;
         f_service_ << indent() << "    callback(result);" << endl;
         f_service_ << indent() << "  });" << endl;
         f_service_ << indent() << "} else {" << endl;
