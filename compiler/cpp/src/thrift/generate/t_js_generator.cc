@@ -192,6 +192,7 @@ public:
   std::string declare_field(t_field* tfield, bool init = false, bool obj = false);
   std::string function_signature(t_function* tfunction,
                                  std::string prefix = "",
+                                 std::string extra_argument = "",
                                  bool include_callback = false);
   std::string argument_list(t_struct* tstruct, bool include_callback = false);
   std::string type_to_enum(t_type* ttype);
@@ -1452,7 +1453,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
 
     // Open function
     f_service_ << js_namespace(tservice->get_program()) << service_name_ << "Client.prototype."
-               << function_signature(*f_iter, "", true) << " {" << endl;
+               << function_signature(*f_iter, "", "", true) << " {" << endl;
 
     indent_up();
 
@@ -1515,8 +1516,8 @@ void t_js_generator::generate_service_client(t_service* tservice) {
       indent_down();
       f_service_ << indent() << "}" << endl;
     } else { // Standard JavaScript ./gen-js
-      f_service_ << indent() << "this.pendingError = new Error();" << endl;
-      f_service_ << indent() << "this.send_" << funname << "(" << arglist
+      f_service_ << indent() << "var pendingError = new Error();" << endl;
+      f_service_ << indent() << "this.send_" << funname << "(pendingError, " << arglist
                  << (arglist.empty() ? "" : ", ") << "callback); " << endl;
       if (!(*f_iter)->is_oneway()) {
         f_service_ << indent() << "if (!callback) {" << endl;
@@ -1526,8 +1527,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "  } catch (e) {" << endl;
         f_service_ << indent() << "    result = e;" << endl;
         f_service_ << indent() << "    result.message = 'Thrift Exception';" << endl;
-        f_service_ << indent() << "    result.stack = this.pendingError ? this.pendingError.stack || this.pendingError.stacktrace || this.pendingError : null;" << endl;
-        f_service_ << indent() << "    this.pendingError = null;" << endl;
+        f_service_ << indent() << "    result.stack = pendingError ? pendingError.stack || pendingError.stacktrace || pendingError : null;" << endl;
         f_service_ << indent() << "    throw result;" << endl;
         f_service_ << indent() << "  }" << endl;
         if (!(*f_iter)->get_returntype()->is_void()) {
@@ -1543,7 +1543,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
 
     // Send function
     f_service_ << js_namespace(tservice->get_program()) << service_name_ << "Client.prototype.send_"
-               << function_signature(*f_iter, "", !gen_node_) << " {" << endl;
+               << function_signature(*f_iter, "", "pendingError", !gen_node_) << " {" << endl;
 
     indent_up();
 
@@ -1596,9 +1596,8 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "    } catch (e) {" << endl;
         f_service_ << indent() << "      result = e;" << endl;
         f_service_ << indent() << "      result.message = 'Thrift Exception';" << endl;
-        f_service_ << indent() << "      result.stack = self.pendingError ? self.pendingError.stack || self.pendingError.stacktrace || self.pendingError : null;" << endl;
+        f_service_ << indent() << "      result.stack = pendingError ? pendingError.stack || pendingError.stacktrace || pendingError : null;" << endl;
         f_service_ << indent() << "    }" << endl;
-        f_service_ << indent() << "    self.pendingError = null;" << endl;
         f_service_ << indent() << "    callback(result);" << endl;
         f_service_ << indent() << "  });" << endl;
         f_service_ << indent() << "} else {" << endl;
@@ -2137,13 +2136,19 @@ string t_js_generator::declare_field(t_field* tfield, bool init, bool obj) {
  */
 string t_js_generator::function_signature(t_function* tfunction,
                                           string prefix,
+                                          string extra_argument,
                                           bool include_callback) {
 
   string str;
 
   str = prefix + tfunction->get_name() + " = function(";
 
-  str += argument_list(tfunction->get_arglist(), include_callback);
+  string arguments = argument_list(tfunction->get_arglist(), include_callback);
+  if (extra_argument.length() > 0 && arguments.length() > 0) {
+    arguments = ", " + arguments;
+  }
+
+  str += extra_argument + arguments;
 
   str += ")";
   return str;
