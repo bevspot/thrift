@@ -1516,7 +1516,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
       indent_down();
       f_service_ << indent() << "}" << endl;
     } else { // Standard JavaScript ./gen-js
-      f_service_ << indent() << "var pendingError = new Error();" << endl;
+      f_service_ << indent() << "var pendingError = new Error('Thrift Exception');" << endl;
       f_service_ << indent() << "this.send_" << funname << "(pendingError, " << arglist
                  << (arglist.empty() ? "" : ", ") << "callback); " << endl;
       if (!(*f_iter)->is_oneway()) {
@@ -1526,7 +1526,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "    result = this.recv_" << funname << "();" << endl;
         f_service_ << indent() << "  } catch (e) {" << endl;
         f_service_ << indent() << "    result = e;" << endl;
-        f_service_ << indent() << "    result.message = 'Thrift Exception';" << endl;
+        f_service_ << indent() << "    result.message = pendingError.message;" << endl;
         f_service_ << indent() << "    result.stack = pendingError ? pendingError.stack || pendingError.stacktrace || pendingError : null;" << endl;
         f_service_ << indent() << "    throw result;" << endl;
         f_service_ << indent() << "  }" << endl;
@@ -1595,7 +1595,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "      result = self.recv_" << funname << "() || xhrError;" << endl;
         f_service_ << indent() << "    } catch (e) {" << endl;
         f_service_ << indent() << "      result = e;" << endl;
-        f_service_ << indent() << "      result.message = 'Thrift Exception';" << endl;
+        f_service_ << indent() << "      result.message = pendingError.message;" << endl;
         f_service_ << indent() << "      result.stack = pendingError ? pendingError.stack || pendingError.stacktrace || pendingError : null;" << endl;
         f_service_ << indent() << "    }" << endl;
         f_service_ << indent() << "    callback(result);" << endl;
