@@ -1520,20 +1520,18 @@ void t_js_generator::generate_service_client(t_service* tservice) {
                  << (arglist.empty() ? "" : ", ") << "callback); " << endl;
       if (!(*f_iter)->is_oneway()) {
         f_service_ << indent() << "if (!callback) {" << endl;
-        f_service_ << indent();
+        f_service_ << indent() << "  var result = null;" << endl;
+        f_service_ << indent() << "  try {" << endl;
+        f_service_ << indent() << "    result = this.recv_" << funname << "();" << endl;
+        f_service_ << indent() << "  } catch (e) {" << endl;
+        f_service_ << indent() << "    result = e;" << endl;
+        f_service_ << indent() << "    result.message = 'Thrift Exception';" << endl;
+        f_service_ << indent() << "    result.stack = this.pendingError ? this.pendingError.stack || this.pendingError.stacktrace || this.pendingError : null;" << endl;
+        f_service_ << indent() << "    this.pendingError = null;" << endl;
+        f_service_ << indent() << "    throw result;" << endl;
+        f_service_ << indent() << "  }" << endl;
         if (!(*f_iter)->get_returntype()->is_void()) {
-          f_service_ << "  var result = null;" << endl;
-          f_service_ << indent() << "  try {" << endl;
-          f_service_ << indent() << "    result = this.recv_" << funname << "();" << endl;
-          f_service_ << indent() << "  } catch (e) {" << endl;
-          f_service_ << indent() << "    result = e;" << endl;
-          f_service_ << indent() << "    result.message = 'Thrift Exception';" << endl;
-          f_service_ << indent() << "    result.stack = this.pendingError ? this.pendingError.stack || this.pendingError.stacktrace || this.pendingError : null;" << endl;
-          f_service_ << indent() << "  }" << endl;
-          f_service_ << indent() << "  this.pendingError = null;" << endl;
           f_service_ << indent() << "  return result;" << endl;
-        } else {
-          f_service_ << "  this.recv_" << funname << "();" << endl;
         }
         f_service_ << indent() << "}" << endl;
       }
