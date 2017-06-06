@@ -410,7 +410,7 @@ string t_java_generator::java_package() {
 }
 
 string t_java_generator::java_suppressions() {
-  return "@SuppressWarnings({\"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n";
+  return "@SuppressWarnings({\"nullness\", \"cast\", \"rawtypes\", \"serial\", \"unchecked\", \"unused\"})\n";
 }
 
 /**
@@ -448,6 +448,9 @@ void t_java_generator::generate_enum(t_enum* tenum) {
   // Add java imports
   f_enum << string() + "import java.util.Map;\n" + "import java.util.HashMap;\n"
             + "import org.apache.thrift.TEnum;" << endl << endl;
+
+  // Add suppressions
+  f_enum << java_suppressions();
 
   generate_java_doc(f_enum, tenum);
   if (is_deprecated) {
