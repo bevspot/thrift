@@ -312,6 +312,7 @@ public:
    * @return string
    */
   string ts_get_req(t_field* field) { return (field->get_req() == t_field::T_OPTIONAL ? "?" : ""); }
+  string ts_type_null_if_opt(t_field* field) { return (field->get_req() == t_field::T_REQUIRED ? "" : " | null"); }
 
   /**
    * Returns the documentation, if the provided documentable object has one.
@@ -774,7 +775,7 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
     }
     if (gen_ts_) {
       f_types_ts_ << ts_indent() << (*m_iter)->get_name() << ": "
-                  << ts_get_type((*m_iter)->get_type()) << ";" << endl;
+                  << ts_get_type((*m_iter)->get_type()) << ts_type_null_if_opt(*m_iter) << ";" << endl;
     }
   }
 
@@ -855,7 +856,7 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
       out << indent() << indent() << "}" << endl;
       if (gen_ts_) {
         f_types_ts_ << (*m_iter)->get_name() << ts_get_req(*m_iter) << ": "
-                    << ts_get_type((*m_iter)->get_type()) << "; ";
+                    << ts_get_type((*m_iter)->get_type()) << ts_type_null_if_opt(*m_iter) << "; ";
       }
     }
 
@@ -2322,7 +2323,7 @@ std::string t_js_generator::ts_function_signature(t_function* tfunction, bool in
   str += ts_indent() + tfunction->get_name() + "(";
 
   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
-    str += (*f_iter)->get_name() + ts_get_req(*f_iter) + ": " + ts_get_type((*f_iter)->get_type());
+    str += (*f_iter)->get_name() + ": " + ts_get_type((*f_iter)->get_type()) + ts_type_null_if_opt(*f_iter);
 
     if (f_iter + 1 != fields.end() || (include_callback && fields.size() > 0)) {
       str += ", ";
