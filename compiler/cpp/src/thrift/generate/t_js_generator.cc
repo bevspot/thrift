@@ -855,7 +855,7 @@ void t_js_generator::generate_js_struct_definition(ofstream& out,
       }
       out << indent() << indent() << "}" << endl;
       if (gen_ts_) {
-        f_types_ts_ << (*m_iter)->get_name() << ts_get_req(*m_iter) << ": "
+        f_types_ts_ << (*m_iter)->get_name() << ": "
                     << ts_get_type((*m_iter)->get_type()) << ts_type_null_if_opt(*m_iter) << "; ";
       }
     }
