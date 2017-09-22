@@ -1451,6 +1451,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
     vector<t_field*>::const_iterator fld_iter;
     string funname = (*f_iter)->get_name();
     string arglist = argument_list(arg_struct);
+    string extra_send_argument = "";
 
     // Open function
     f_service_ << js_namespace(tservice->get_program()) << service_name_ << "Client.prototype."
@@ -1517,8 +1518,9 @@ void t_js_generator::generate_service_client(t_service* tservice) {
       indent_down();
       f_service_ << indent() << "}" << endl;
     } else { // Standard JavaScript ./gen-js
-      f_service_ << indent() << "var pendingError = new Error('Thrift Exception');" << endl;
-      f_service_ << indent() << "this.send_" << funname << "(pendingError, " << arglist
+      extra_send_argument = "pendingError";
+      f_service_ << indent() << "var " << extra_send_argument << " = new Error('Thrift Exception');" << endl;
+      f_service_ << indent() << "this.send_" << funname << "(" << extra_send_argument << ", " << arglist
                  << (arglist.empty() ? "" : ", ") << "callback); " << endl;
       if (!(*f_iter)->is_oneway()) {
         f_service_ << indent() << "if (!callback) {" << endl;
@@ -1527,8 +1529,8 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "    result = this.recv_" << funname << "();" << endl;
         f_service_ << indent() << "  } catch (e) {" << endl;
         f_service_ << indent() << "    result = e;" << endl;
-        f_service_ << indent() << "    result.message = pendingError.message;" << endl;
-        f_service_ << indent() << "    result.stack = pendingError ? pendingError.stack || pendingError.stacktrace || pendingError : null;" << endl;
+        f_service_ << indent() << "    result.message = " << extra_send_argument << ".message;" << endl;
+        f_service_ << indent() << "    result.stack = " << extra_send_argument << " ? " << extra_send_argument << ".stack || " << extra_send_argument << ".stacktrace || " << extra_send_argument << " : null;" << endl;
         f_service_ << indent() << "    throw result;" << endl;
         f_service_ << indent() << "  }" << endl;
         if (!(*f_iter)->get_returntype()->is_void()) {
@@ -1544,7 +1546,7 @@ void t_js_generator::generate_service_client(t_service* tservice) {
 
     // Send function
     f_service_ << js_namespace(tservice->get_program()) << service_name_ << "Client.prototype.send_"
-               << function_signature(*f_iter, "", "pendingError", !gen_node_) << " {" << endl;
+               << function_signature(*f_iter, "", extra_send_argument, !gen_node_) << " {" << endl;
 
     indent_up();
 
@@ -1596,8 +1598,8 @@ void t_js_generator::generate_service_client(t_service* tservice) {
         f_service_ << indent() << "      result = self.recv_" << funname << "() || xhrError;" << endl;
         f_service_ << indent() << "    } catch (e) {" << endl;
         f_service_ << indent() << "      result = e;" << endl;
-        f_service_ << indent() << "      result.message = pendingError.message;" << endl;
-        f_service_ << indent() << "      result.stack = pendingError ? pendingError.stack || pendingError.stacktrace || pendingError : null;" << endl;
+        f_service_ << indent() << "      result.message = " << extra_send_argument << ".message;" << endl;
+        f_service_ << indent() << "      result.stack = " << extra_send_argument << " ? " << extra_send_argument << ".stack || " << extra_send_argument << ".stacktrace || " << extra_send_argument << " : null;" << endl;
         f_service_ << indent() << "    }" << endl;
         f_service_ << indent() << "    callback(result);" << endl;
         f_service_ << indent() << "  });" << endl;
