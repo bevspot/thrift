@@ -685,7 +685,7 @@ declare module 'thrift' {
     */
     createClient(serviceName: string, SCl: any, transport: Transport) : any;
   }
-
-  import * as Thrift from 'thrift';
-  export default Thrift;
 }
+
+import * as Thrift from 'thrift';
+export default Thrift;
